@@ -7,5 +7,5 @@
       "name" : "Dmitry Kolbin"
       , "email" : "dkolbin@gmail.com"
     },
-  "main" : "lfmprint.node"
+  "main" : "lfmprint.js"
 }

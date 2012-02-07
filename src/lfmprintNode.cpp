@@ -1,13 +1,22 @@
 #include "include/lfmprint.h"
 #include <v8.h>
-#include <node_version.h>
 #include <node.h>
+#include <node_buffer.h>
+#include <node_version.h>
 #include <iostream>
 #include <string>
+#include <cstring>
+#include <cstdlib>
 
 using namespace v8;
 using namespace node;
 using namespace std;
+
+void FreeMemory(char *data, void *hint) {
+     free(data);
+     V8::AdjustAmountOfExternalAllocatedMemory(-(sizeof(Buffer) + (size_t) hint));
+}
+
 
 class lfmprintNode : ObjectWrap{
 public:
@@ -36,12 +45,14 @@ public:
     struct lfmprint_thread_data_t {
         lfmprintNode * lfm;
         Persistent<Function> cb;
-        string fp;
+        fingerprint_data fp_data;
         string fname;
         string exception;
     };
+
+
     static Handle<Value> fetchFingerprint(const Arguments& args) {
-        HandleScope scope;        
+        HandleScope scope;
         if (args.Length() <= (1) || !args[0]->IsString() || !args[1]->IsFunction()) {
             return ThrowException(Exception::TypeError(String::New("Usage: <filename> <callback function>")));
         }
@@ -75,7 +86,7 @@ public:
     static int fetchFingerprintWorker(eio_req *req) {
         lfmprint_thread_data_t *thread_data = static_cast<lfmprint_thread_data_t *> (req->data);
         try {
-            thread_data->fp = getFingerprint(thread_data->fname);
+            thread_data->fp_data = getFingerprint(thread_data->fname);
         } catch (const char * err){
             thread_data->exception.append(err);
         }
@@ -86,17 +97,26 @@ public:
         lfmprint_thread_data_t *thread_data = static_cast<lfmprint_thread_data_t *> (req->data);
         ev_unref(EV_DEFAULT_UC);
         thread_data->lfm->Unref();
-        Local<Value> argv[2];
+        Local<Value> argv[3];
         if (!thread_data->exception.empty()) {
             argv[0] = Local<String>::New(String::New(thread_data->exception.data(), thread_data->exception.size()));
             argv[1] = Local<Value>::New(Null());
+            argv[2] = Local<Value>::New(Null());
         } else {
+            const char *data = thread_data->fp_data.fingerprint.data();
+            size_t length = thread_data->fp_data.fingerprint.size();
+            char *output = (char*) malloc(length);
+            V8::AdjustAmountOfExternalAllocatedMemory(sizeof(Buffer) + length);
+
+            memcpy(output, data, length);
+
             argv[0] = Local<Value>::New(Null());
-            argv[1] = Local<String>::New(String::New(thread_data->fp.data(), thread_data->fp.size()));
+            argv[1] = Local<Object>::New(Buffer::New(output, length, &FreeMemory, (void *) length)->handle_);
+            argv[2] = Local<Integer>::New(Integer::New(thread_data->fp_data.duration));
         }
 
         TryCatch try_catch;
-        thread_data->cb->Call(Context::GetCurrent()->Global(), 2, argv);
+        thread_data->cb->Call(Context::GetCurrent()->Global(), 3, argv);
         if (try_catch.HasCaught()) {
             FatalException(try_catch);
         }

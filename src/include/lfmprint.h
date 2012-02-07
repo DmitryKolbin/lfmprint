@@ -3,7 +3,14 @@
 
 #include <string>
 
-std::string getFingerprint(std::string file);
+struct fingerprint_data {
+  std::string fingerprint;
+  int duration;
+};
+
+fingerprint_data getFingerprint(std::string file);
 void lfmprint_init();
 void lfmprint_destroy();
+
+
 #endif

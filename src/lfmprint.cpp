@@ -9,7 +9,7 @@ extern "C" {
 #include <FingerprintExtractor.h>
 #include <utility>
 #include <string>
-
+#include <iostream>
 #include "include/lfmprint.h"
 
 using namespace std;
@@ -84,12 +84,13 @@ pair<const char*,size_t> processPCM(AVFormatContext *pFormatCtx,
 }
 
 
-string getFingerprint(string file) {
-    AVFormatContext *pFormatCtx;
-    int audioStream;
-    AVCodecContext  *pCodecCtx;
-    AVCodec         *pCodecDec;
-    int ret;
+fingerprint_data getFingerprint(string file) {
+    AVFormatContext   *pFormatCtx;
+    int               duration;
+    int               audioStream;
+    AVCodecContext    *pCodecCtx;
+    AVCodec           *pCodecDec;
+    int               ret;
     pFormatCtx = avformat_alloc_context(); 
     if ((ret = avformat_open_input(&pFormatCtx, file.c_str(), NULL, NULL)) < 0) {
         char buf[1024];
@@ -132,6 +133,7 @@ string getFingerprint(string file) {
         throw buf;
     } 
     pthread_mutex_unlock(&mutex);
+    duration = pFormatCtx->duration / AV_TIME_BASE;
     pair<const char*, size_t> r = processPCM(pFormatCtx, pCodecCtx, audioStream);
     if (r.second == 0) {
        avcodec_close(pCodecCtx);
@@ -143,6 +145,10 @@ string getFingerprint(string file) {
     pthread_mutex_unlock(&mutex);
     
     av_close_input_file(pFormatCtx);
-    return string (r.first, r.second);
+
+    fingerprint_data result;
+    result.fingerprint = string (r.first, r.second);
+    result.duration = duration;
+    return result;
 }
 
