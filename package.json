@@ -1,6 +1,6 @@
 {
   "name" : "lfmprint",
-  "version" : "v0.0.1",
+  "version" : "v0.0.2",
   "description" : "Native Node.js C++ extension for generaion lastfm fingerprint.",
   "homepage" : "https://github.com/DmitryKolbin/lfmprint",
   "author" : { 
